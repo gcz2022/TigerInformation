@@ -1,0 +1,5 @@
+{
+"http://news.163.com/":{"tag":"div", "attr":"class", "attr_r":"article-body"},
+"http://culture.ifeng.com/":{"tag":"div", "attr":"id", "attr_r":"main_content"},
+"http://www.fmprc.gov.cn/":{"tag":"div", "attr":"id", "attr_r":"article"}
+}
