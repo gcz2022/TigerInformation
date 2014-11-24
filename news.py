@@ -14,6 +14,7 @@ import chardet
 import jieba
 import jieba.analyse
 import math
+import md5
 from urlparse import urlparse
 from bs4 import BeautifulSoup
 reload(sys)
@@ -24,7 +25,7 @@ f.close
 
 def baidu(keyword, index):
 	try:
-		url = 'http://news.baidu.com/ns?word=%s&pn=%d&cl=2&ct=1&tn=news&rn=100&ie=utf-8&bt=0&et=0' % (keyword, index)
+		url = 'http://news.baidu.com/ns?word=%s&pn=%d&cl=3&ct=1&tn=news&rn=100&ie=utf-8&bt=0&et=0' % (keyword, index)
 		req = urllib2.Request(url)
 		response = urllib2.urlopen(req)
 		the_page = response.read()
@@ -34,7 +35,7 @@ def baidu(keyword, index):
 			title = item.h3.a.get_text()
 			url = item.h3.a['href'].encode("utf-8")
 			s = item.div.p.get_text().encode("utf-8")
-			index = s.find('  ')
+			index = s.find('  ')
 			source = s[0:index]
 			time = s[index + 4:len(s)]
 			dateTime = datetime.datetime.strptime(time, "%Y-%m-%d  %H:%M:%S")
@@ -51,7 +52,8 @@ def baidu(keyword, index):
 	except Exception, e:
 		print e
 	finally:
-		print "done!"
+		#print "done!"
+		pass
 
 def newsDetail(url):
 	try:
@@ -66,8 +68,8 @@ def newsDetail(url):
 			response = urllib2.urlopen(req, timeout = 5)
 			the_page = response.read()
 			charset = chardet.detect(the_page)
-			the_page = the_page.decode(charset['encoding'], 'ignore')
-			print charset['encoding']
+			the_page = the_page.decode(charset['encoding'])
+			print charset['encoding'], url
 			soup = BeautifulSoup(the_page)
 			# for tag in soup.find_all(attrs={"class":re.compile("\.*gg*")}):
 			# 	# print tag
@@ -76,22 +78,25 @@ def newsDetail(url):
 			# print soup
 			result = soup.find(detailFilter['tag'], {detailFilter['attr']: detailFilter['attr_r']})
 			if result == None:
-				print "ERROR"
-				return None
-			else:
 				result = soup.find('font',{"id":"zoom"})
 				if result == None:
-					return None
-				else:
 					result = soup.find('font',{"id":"Zoom"})
 					if result == None:
 						return None
-			# print result
+			if result == None:
+				return None
+
+			imgdir = 'images'
+			for image in result.find_all('img'):
+				imgsrc = image['src']
+				basename = md5.new(imgsrc).hexdigest()
+				extension = os.path.splitext(urlparse(imgsrc).path)[1]
+				filename = basename + extension
+				image['src'] = filename
+				print 'downloading', imgsrc, 'as', filename
+				urllib.urlretrieve(imgsrc, '%s/%s' % (imgdir, filename))
 
 			return result.get_text()
-			# plainText = result.get_text()
-
-
 	except Exception, e:
 		print e
 	finally:
@@ -119,7 +124,6 @@ def getSegmentation(content):
 # 		return None
 # 	else:
 # 		return part_up / part_down
-
 
 def getDomain(url):
 	# res = r'http:\/\/.*?\/'
@@ -216,15 +220,14 @@ init()
 # print getDistResult(s1, s2)
 
 # getSegmentation('中国官员独董离职潮仍在继续。中国石油[0.52%资金研报]天然气股份有限公司将在5月22日召开年度股东大会，早前公布的会议议程显示，三位担任公司独立董事的前任副部级、部级官员已不在新一届董事会候选人名单中。')
-baidu('卢雍政', 100)
-# newsDetail('http://news.163.com/14/0522/14/9SRSNH6E00014AEE.html')
+# baidu('卢雍政', 100)
+newsDetail('http://news.163.com/14/1124/10/ABQEGPBS0001124J.html')
 
 # url1 = 'http://news.163.com/14/1124/06/ABPVMOLE00014AED.html'
 # url2 = 'http://news.hexun.com/2014-11-24/170701748.html?from=rss'
 # d1 = newsDetail(url1)
 # d2 = newsDetail(url2)
 # print getDistResult(d1, d2)
-
 
 
 
