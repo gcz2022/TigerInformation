@@ -128,7 +128,7 @@ def newsDetail(url, keyword, title, source, dateTime):
 			print "insert begin"
 			# print type(keyword), type(title), type(unicode(result)), type(result.get_text())
 			# print "insert into article (keyword, title, content, plainText) values(%s, %s, %s, %s)" % (keyword, title, unicode(result), result.get_text())
-			cu.execute("insert into article (keyword, title, content, plainText) values('%s', '%s', '%s', '%s')" % (keyword, title, unicode(result), result.get_text()))
+			cu.execute("insert into article (keyword, title, source, date, content, plainText) values('%s', '%s', '%s', '%s', '%s', '%s')" % (keyword, title, source, dateTime, unicode(result), result.get_text()))
 			cx.commit()
 			print "insert success"
 			return result.get_text()
