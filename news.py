@@ -15,13 +15,25 @@ import jieba
 import jieba.analyse
 import math
 import md5
+import sqlite3
 from urlparse import urlparse
 from bs4 import BeautifulSoup
 reload(sys)
+sys.setdefaultencoding('utf8')
 
 f = file("filter.json")
 myFilter = json.load(f)
 f.close
+
+cx = sqlite3.connect("test2.db");
+# cu = cx.cursor()
+
+# cu.execute("create table if not exists keyword (name varchar(30))")
+# cu.execute("create table if not exists article (keyword varchar(30), title text, source varchar(100), date date, content text, plainText text)")
+# cu.execute("insert into keyword values('卢雍政')")
+# cx.commit()
+
+
 
 def baidu(keyword, index):
 	try:
@@ -32,15 +44,19 @@ def baidu(keyword, index):
 		soup = BeautifulSoup(the_page)
 		result = soup.find_all('li', {'class':'result'})
 		for item in result:
+			# print item
 			title = item.h3.a.get_text()
 			url = item.h3.a['href'].encode("utf-8")
 			s = item.div.p.get_text().encode("utf-8")
-			index = s.find('  ')
+			temp = "  "
+			index = s.find(temp)
 			source = s[0:index]
+			# index = source.find(temp)
+			# source = s[0:index]
 			time = s[index + 4:len(s)]
 			dateTime = datetime.datetime.strptime(time, "%Y-%m-%d  %H:%M:%S")
 
-			newsDetail(url)
+			newsDetail(url, keyword, title, source, dateTime)
 
 			
 			# print title
@@ -55,8 +71,9 @@ def baidu(keyword, index):
 		#print "done!"
 		pass
 
-def newsDetail(url):
+def newsDetail(url, keyword, title, source, dateTime):
 	try:
+		print "newsDetail"
 		domain = getDomain(url)
 		detailFilter = myFilter.get(domain)
 		# print myFilter[domain], '111'
@@ -82,10 +99,21 @@ def newsDetail(url):
 				if result == None:
 					result = soup.find('font',{"id":"Zoom"})
 					if result == None:
+						print "Error"
 						return None
 			if result == None:
+				print "Error"
 				return None
+			print "1"
 
+			# aList = getArticles(keyword)
+			# for article in aList:
+			# 	aPlain = article[5]
+			# 	aDist = getDistResult(aPlain, result.get_text())
+			# 	if aDist < 0.5:
+			# 		return None
+
+			# print "2"
 			imgdir = 'images'
 			for image in result.find_all('img'):
 				imgsrc = image['src']
@@ -96,11 +124,18 @@ def newsDetail(url):
 				print 'downloading', imgsrc, 'as', filename
 				urllib.urlretrieve(imgsrc, '%s/%s' % (imgdir, filename))
 
+			cu = cx.cursor()
+			print "insert begin"
+			# print type(keyword), type(title), type(unicode(result)), type(result.get_text())
+			# print "insert into article (keyword, title, content, plainText) values(%s, %s, %s, %s)" % (keyword, title, unicode(result), result.get_text())
+			cu.execute("insert into article (keyword, title, content, plainText) values('%s', '%s', '%s', '%s')" % (keyword, title, unicode(result), result.get_text()))
+			cx.commit()
+			print "insert success"
 			return result.get_text()
 	except Exception, e:
 		print e
-	finally:
-		print "done - ", url
+	# finally:
+		# print "done - ", url
 
 def getSegmentation(content):
 	result = jieba.analyse.extract_tags(content,20,True)
@@ -162,9 +197,15 @@ def init(filename='SogouLabDic.dic'):
 	with open(filename, 'r') as handle:
 		for line in handle:
 			word, freq = line.split('\t')[0:2]
+			try:
+				word = word.decode('gbk').encode('utf-8')
+			except:
+				word = word
+			# print word
+			# word = word.decode('gbk').encode('utf-8')
 			d['_t_'] += int(freq)+1
 			try:
-				d[word.decode('gbk')] = int(freq)+1
+				d[word] = int(freq)+1
 			except:
 				d[word] = int(freq)+1
  
@@ -200,6 +241,8 @@ def getDistResult(a1, a2):
 	s1 = list(solve(a1))
 	s2 = list(solve(a2))
 
+	print s1
+
 	key = list(set(s1 + s2))
 	keyLen=len(key)
 	keyValue = 0
@@ -213,7 +256,31 @@ def getDistResult(a1, a2):
 			sk2[index]=sk2[index]+1 
 	return cos_dist(sk1, sk2)
 
+def getAllKeywords():
+	cu = cx.cursor()
+	cu.execute("select name from keyword")
+	return cu.fetchall()
+
+def getArticles(keyword):
+	cu = cx.cursor()
+	# cu.execute("select title, date, content from article join keyword on keyword.rowid = article.keywordid where name = %s" % keyword)
+	cu.execute("select * from article join keyword on keyword.name = article.keyword where name = %s" % keyword)
+	#cu.execute("select title, date, content from article, keyword where keyword.rowid = article.keywordid and name = %s" % keyword)
+	return cu.fetchall()
+
+
+
 init()
+keywordList = getAllKeywords()
+for key in keywordList:
+	print key[0]
+	i = 0
+	while i < 1000:
+		baidu(key[0], i)
+		i = i + 100
+
+
+
 
 # s1 = '中国官员独董离职潮仍在继续。中国石油[0.52%资金研报]天然气股份有限公司将在5月22日召开年度股东大会，早前公布的会议议程显示，三位担任公司独立董事的前任副部级、部级官员已不在新一届董事会候选人名单中。'
 # s2 = '测试测试测试haha'
@@ -221,7 +288,9 @@ init()
 
 # getSegmentation('中国官员独董离职潮仍在继续。中国石油[0.52%资金研报]天然气股份有限公司将在5月22日召开年度股东大会，早前公布的会议议程显示，三位担任公司独立董事的前任副部级、部级官员已不在新一届董事会候选人名单中。')
 # baidu('卢雍政', 100)
-newsDetail('http://news.163.com/14/1124/10/ABQEGPBS0001124J.html')
+# newsDetail('http://news.163.com/14/1124/10/ABQEGPBS0001124J.html')
+
+
 
 # url1 = 'http://news.163.com/14/1124/06/ABPVMOLE00014AED.html'
 # url2 = 'http://news.hexun.com/2014-11-24/170701748.html?from=rss'
